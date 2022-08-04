@@ -1,4 +1,0 @@
-csi   4번
-mosi 11번
-sck   13번
-miso 12번
