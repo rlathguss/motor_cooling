@@ -1,11 +1,28 @@
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
+  * All rights reserved.</center></h2>
+  *
+  * This software component is licensed by ST under BSD 3-Clause license,
+  * the "License"; You may not use this file except in compliance with the
+  * License. You may obtain a copy of the License at:
+  *                        opensource.org/licenses/BSD-3-Clause
+  *
+  ******************************************************************************
+  */
 #include "stdio.h"
 #include "stm32f4xx_hal.h"
-#include "stdio.h"
 #include "bno055.h"
 #include "string.h"
 #include "CANSPI.h"
 #include "MCP2515.h"
-#include <stdlib.h>
+#include "stdlib.h"
 #include "i2c-lcd.h"
 #include "stm32_tm1637.h"
 #include "MY_NRF24.h"
@@ -30,26 +47,74 @@ SPI_HandleTypeDef hspi3;
 TIM_HandleTypeDef htim1;
 /* USER CODE END Includes */
 
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
 const uint64_t TxpipeAddrs = 0xE8E8F0F0E1LL; // RF pipe to send
 struct {
 	int rpm;//for Motor Data
-	float motor_torq,motor_torque_demand;//for IMU and Motor Data
-	uint16_t motor_temp,motor_vol,batt_vol,motor_curr,batt_curr,throttle_input_vol;//for telemetry
-  uint8_t heatsink_temp;
+		float motor_torq,motor_torque_demand;//for IMU and Motor Data
+		uint16_t motor_temp,motor_vol,batt_vol,motor_curr,batt_curr;//for telemetry
 }mxTxData;//To send data
 char RPM_RR[10];
 uCAN_MSG txMessage;
 uCAN_MSG rxMessage;
 int row=0;
 int col=0;
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
 
+/* USER CODE END PFP */
 
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
 int main(void)
 {
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
   /* Configure the system clock */
   SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
@@ -62,24 +127,35 @@ int main(void)
   MX_I2C2_Init();
   MX_USART6_UART_Init();
   MX_TIM1_Init();
+  /* USER CODE BEGIN 2 */
 
-  memset(txMessage, 0x0, sizeof(txMessage));
-  txMessage.frame.dlc = 8;// Data length
-//------------------------------------ **** TRANSMIT - ACK ****------------------------------------//
-  nrf24_DebugUART_Init(huart2);
-  NRF24_begin(GPIOB, GPIO_PIN_6, GPIO_PIN_4, hspi3); //어떤 핀에서 데이터 받아올지 정하기
-  NRF24_setPALevel(RF24_PA_0dB);
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  /* Infinite loop */
+  //------------------------------------ **** TRANSMIT - ACK ****------------------------------------//
+	nrf24_DebugUART_Init(huart2);
+	NRF24_begin(GPIOB, GPIO_PIN_6, GPIO_PIN_4, hspi3);
+
+	NRF24_setPALevel(RF24_PA_0dB);
 	NRF24_setAutoAck(false);
 	NRF24_setChannel(80);
-	NRF24_setPayloadSize(16);
+	NRF24_setPayloadSize(28);
 	NRF24_setDataRate(RF24_2MBPS);
 	NRF24_openWritingPipe(TxpipeAddrs);
 	NRF24_stopListening();
-//------------------------------------ **** MCP2515 Setting ****------------------------------------//
+
+ //------------------------------------ **** MCP2515 Setting ****------------------------------------//
   CANSPI_Initialize();
-  while (1)
-  {
-//------------------------------------ **** CAN_Motor ****------------------------------------//
+ //------------------------------------ **** Segment Setting ****------------------------------------//
+ 	tm1637Init();
+  tm1637SetBrightness(3);
+ //------------------------------------ **** CAN_Motor ****------------------------------------//
+  memset(txMessage, 0x0, sizeof(txMessage));
+  txMessage.frame.dlc = 8;// Data length
+  
+  while (1){
   	txMessage.frame.id = 0x205;// To Listen Motor PDO data
 	  CANSPI_Transmit(&txMessage);// Send Tx Message to get PDO data
 
@@ -116,7 +192,7 @@ int main(void)
 					uint16_t torque_demand1= ((uint16_t)rxMessage2.frame.data1 << 8) | rxMessage.frame.data0; //torque_demand data 2bytes
 					uint16_t throttle_input_vol1= ((uint16_t)rxMessage.frame.data3 << 8) | rxMessage.frame.data2; //throttle_input_vol data 2bytes
 					uint8_t heatsink_temp1= (uint8_t)rxMessage.frame.data4; // heatsink_temp data 1bytes
-					uint16_t /////////////= ((uint16_t)rxMessage.frame.data7 << 8) | rxMessage.frame.data6; //Motor current data 2bytes
+					uint16_t motor_curr1= ((uint16_t)rxMessage.frame.data7 << 8) | rxMessage.frame.data6; //Motor current data 2bytes
 	  		}
 	  	}
 	  	else
@@ -126,28 +202,30 @@ int main(void)
 	  }
 //------------------------------------ **** 7Segment ****------------------------------------//
 
-  tm1637DisplayDecimal(RPM_RR,1);//Display 7-segment for motor data
+	  tm1637DisplayDecimal(RPM_RR,1);//Display 7-segment for motor data
 
 //------------------------------------ **** RF_Trans ****------------------------------------//
-  mxTxData.rpm = RPM;
-  mxTxData.motor_temp = temp_buff;
-  mxTxData.motor_torq = torque_buff * 0.1;
-  mxTxData.motor_torque_demand = motor_torque_demand1*0.1;
-  mxTxData.motor_vol = motor_vol1;
-  mxTxData.motor_curr = motor_curr1;
-  mxTxData.batt_vol = batt_vol1;
-  mxTxData.batt_curr = batt_curr1;
-  mxTxData.torque_demand = torque_demand1;
-  mxTxData.throttle_input_vol = throttle_input_vol1;
-  mxTxData.heatsink_temp = heatsink_temp1;
+	  mxTxData.rpm = RPM;
+	  mxTxData.motor_temp = temp_buff;
+	  mxTxData.motor_torq = torque_buff * 0.1;
+	  mxTxData.motor_torque_demand = motor_torque_demand1*0.1;
+	  mxTxData.motor_vol= motor_vol1;
+	  mxTxData.batt_vol= batt_vol1;
+	  mxTxData.motor_curr= motor_curr1;
+	  mxTxData.batt_curr= batt_curr1;
 
+	  NRF24_write(mxTxData, sizeof(mxTxData));//
+  }
+    /* USER CODE END WHILE */
 
-  NRF24_write(mxTxData, sizeof(mxTxData));//
-	}
+    /* USER CODE BEGIN 3 */
+  /* USER CODE END 3 */
 }
 
-
-
+/**
+  * @brief System Clock Configuration
+  * @retval None
+  */
 void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
@@ -193,7 +271,17 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+//}
 }
+
+/* USER CODE BEGIN 4 */
+
+/* USER CODE END 4 */
+
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
