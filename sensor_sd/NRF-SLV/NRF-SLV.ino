@@ -39,7 +39,7 @@ const uint8_t SEG_ERR3[] = {
   SEG_A | SEG_D | SEG_E | SEG_F | SEG_G,            // E
   SEG_E | SEG_G,                                    // R
   SEG_E | SEG_G,                                    // R
-  SEG_A | SEG_B | SEG_C | SEG_D | SEG_G             // 2
+  SEG_A | SEG_B | SEG_C | SEG_D | SEG_G             // 3
 };
 const uint8_t SEG_RECD[] = {
   SEG_E | SEG_G,                                    // R
@@ -141,7 +141,7 @@ void setup(){
 
   while(true){
     if(radio.begin()){
-      int i2;
+      int i1,i2;
       radio.startListening();  //수신모드 master 보드에서 실행하는 신호를 보내야지 진행가능
       radio.read(&i2,sizeof(i2));
       //Serial.println(i2);
