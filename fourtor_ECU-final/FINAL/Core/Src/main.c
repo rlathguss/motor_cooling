@@ -154,7 +154,8 @@ int main(void)
  	//tm1637Init();
   //tm1637SetBrightness(3);
  //------------------------------------ **** CAN_Motor ****------------------------------------//
-  uint16_t RPM_1,RPM_2,torque_buff,temp_buff,motor_vol1,motor_curr1, batt_vol1,batt_curr1,torque_demand1,throttle_input_vol1,heatsink_temp1;
+  uint16_t RPM_1,RPM_2,torque_buff,temp_buff,motor_vol1,motor_curr1, batt_vol1,batt_curr1,torque_demand1,throttle_input_vol1;
+  uint8_t heatsink_temp1;
   int RPM ;
   while (1){
   	txMessage.frame.idType=0x000;
