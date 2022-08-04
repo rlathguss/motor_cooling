@@ -38,14 +38,14 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-UART_HandleTypeDef huart4;
-UART_HandleTypeDef huart6;
-UART_HandleTypeDef huart2;
-I2C_HandleTypeDef hi2c3;
-I2C_HandleTypeDef hi2c2;
-I2C_HandleTypeDef hi2c1;
-SPI_HandleTypeDef hspi3;
-TIM_HandleTypeDef htim1;
+extern UART_HandleTypeDef huart4;
+extern UART_HandleTypeDef huart6;
+extern UART_HandleTypeDef huart2;
+extern I2C_HandleTypeDef hi2c3;
+extern I2C_HandleTypeDef hi2c2;
+extern I2C_HandleTypeDef hi2c1;
+extern SPI_HandleTypeDef hspi3;
+extern TIM_HandleTypeDef htim1;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -154,7 +154,9 @@ int main(void)
  	//tm1637Init();
   //tm1637SetBrightness(3);
  //------------------------------------ **** CAN_Motor ****------------------------------------//
-  uint16_t RPM_1,RPM_2,torque_buff,temp_buff,motor_vol1,motor_curr1, batt_vol1,batt_curr1,torque_demand1,throttle_input_vol1,heatsink_temp1;
+  uint16_t RPM_1,RPM_2,torque_buff,temp_buff,motor_vol1,motor_curr1, batt_vol1,batt_curr1,torque_demand1,throttle_input_vol1;
+  uint8_t heatsink_temp1;
+  int RPM ;
   while (1){
   	txMessage.frame.idType=0x000;
     txMessage.frame.dlc=8;// Data length
@@ -186,7 +188,7 @@ int main(void)
 	  		{
 	  			RPM_1 = ((uint16_t)rxMessage.frame.data1 << 8) | rxMessage.frame.data0;
 	  			RPM_2 = ((uint16_t)rxMessage.frame.data3 << 8) | rxMessage.frame.data2;
-	  			int RPM = ((int)RPM_2 << 16) | RPM_1; // Motor RPM data 4bytes
+	  			RPM = ((int)RPM_2 << 16) | RPM_1; // Motor RPM data 4bytes
 	  			torque_buff = ((uint16_t)rxMessage.frame.data5 << 8) | rxMessage.frame.data4;// Motor Torque data 2bytes
 	  			temp_buff = ((uint16_t)rxMessage.frame.data7 << 8) | rxMessage.frame.data6;// Motor Temperature 2bytes
 	  			sprintf(RPM_RR,"%d",RPM);
@@ -220,13 +222,13 @@ int main(void)
 	  mxTxData.motor_temp = temp_buff;
 	  mxTxData.heatsink_temp = heatsink_temp1;
 	  mxTxData.motor_torq = torque_buff * 0.1;
-	  mxTxData.motor_torque_demand = motor_torque_demand1*0.1;
+	  mxTxData.motor_torque_demand = torque_demand1*0.1;
 	  mxTxData.motor_vol= motor_vol1;
 	  mxTxData.motor_curr= motor_curr1;
 	  mxTxData.batt_vol= batt_vol1;
 	  mxTxData.batt_curr= batt_curr1;
 	  mxTxData.throttle_input_vol=throttle_input_vol1;
-	  NRF24_write(mxTxData, sizeof(mxTxData));
+	  NRF24_write((void*)(&mxTxData),sizeof(mxTxData));
   }
     /* USER CODE END WHILE */
 
