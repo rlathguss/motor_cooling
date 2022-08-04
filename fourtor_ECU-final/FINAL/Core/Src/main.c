@@ -1,0 +1,322 @@
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
+  * All rights reserved.</center></h2>
+  *
+  * This software component is licensed by ST under BSD 3-Clause license,
+  * the "License"; You may not use this file except in compliance with the
+  * License. You may obtain a copy of the License at:
+  *                        opensource.org/licenses/BSD-3-Clause
+  *
+  ******************************************************************************
+  */
+#include "stdio.h"
+#include "stm32f4xx_hal.h"
+#include "bno055.h"
+#include "string.h"
+#include "CANSPI.h"
+#include "MCP2515.h"
+#include <stdlib.h>
+#include "i2c-lcd.h"
+#include "stm32_tm1637.h"
+#include "MY_NRF24.h"
+
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "i2c.h"
+#include "spi.h"
+#include "tim.h"
+#include "usart.h"
+#include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+UART_HandleTypeDef huart4;
+UART_HandleTypeDef huart6;
+UART_HandleTypeDef huart2;
+I2C_HandleTypeDef hi2c3;
+I2C_HandleTypeDef hi2c2;
+I2C_HandleTypeDef hi2c1;
+SPI_HandleTypeDef hspi3;
+TIM_HandleTypeDef htim1;
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+const uint64_t TxpipeAddrs = 0xE8E8F0F0E1LL; // RF pipe to send
+struct {
+	int rpm;//for Motor Data
+		float motor_torq,motor_torque_demand;//for IMU and Motor Data
+		uint16_t motor_temp,motor_vol,batt_vol,motor_curr,batt_curr,throttle_input_vol;//for telemetry
+		uint8_t heatsink_temp;
+}mxTxData;//To send data
+char RPM_RR[10];
+uCAN_MSG txMessage;
+uCAN_MSG rxMessage;
+int row=0;
+int col=0;
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
+
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_USART2_UART_Init();
+  MX_I2C1_Init();
+  MX_I2C3_Init();
+  MX_SPI2_Init();
+  MX_UART4_Init();
+  MX_UART5_Init();
+  MX_SPI3_Init();
+  MX_I2C2_Init();
+  MX_USART6_UART_Init();
+  MX_TIM1_Init();
+  /* USER CODE BEGIN 2 */
+
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  /* Infinite loop */
+  //------------------------------------ **** TRANSMIT - ACK ****------------------------------------//
+	nrf24_DebugUART_Init(huart2);
+	NRF24_begin(GPIOB, GPIO_PIN_6, GPIO_PIN_4, hspi3);
+
+	NRF24_setPALevel(RF24_PA_0dB);
+	NRF24_setAutoAck(false);
+	NRF24_setChannel(80);
+	NRF24_setPayloadSize(28);
+	NRF24_setDataRate(RF24_2MBPS);
+	NRF24_openWritingPipe(TxpipeAddrs);
+	NRF24_stopListening();
+
+ //------------------------------------ **** MCP2515 Setting ****------------------------------------//
+  CANSPI_Initialize();
+ //------------------------------------ **** Segment Setting ****------------------------------------//
+ 	//tm1637Init();
+  //tm1637SetBrightness(3);
+ //------------------------------------ **** CAN_Motor ****------------------------------------//
+  uint16_t RPM_1,RPM_2,torque_buff,temp_buff,motor_vol1,motor_curr1, batt_vol1,batt_curr1,torque_demand1,throttle_input_vol1,heatsink_temp1;
+  while (1){
+  	txMessage.frame.idType=0x000;
+    txMessage.frame.dlc=8;// Data length
+    txMessage.frame.data0=0x00;// To get PDO data
+    txMessage.frame.data1=0x00;
+    txMessage.frame.data2=0x00;
+    txMessage.frame.data3=0x00;
+    txMessage.frame.data4=0x00;
+    txMessage.frame.data5=0x00;
+    txMessage.frame.data6=0x00;
+    txMessage.frame.data7=0x00;
+
+  	txMessage.frame.id = 0x205;// To Listen Motor PDO data
+	  CANSPI_Transmit(&txMessage);// Send Tx Message to get PDO data
+
+	  txMessage.frame.id = 0x114;// To Listen Motor PDO data
+	  CANSPI_Transmit(&txMessage);// Send Tx Message to get PDO data
+
+	  txMessage.frame.id = 0x112;// To Listen Motor PDO data
+	  CANSPI_Transmit(&txMessage);// Send Tx Message to get PDO data
+
+	  int nRecvMsg = 0;
+	  while (nRecvMsg < 3)// If Message sent well
+	  {
+	  	if (CANSPI_Receive(&rxMessage))
+	  	{
+	  		nRecvMsg += 1;
+	  		if (rxMessage.frame.id == 0x205)
+	  		{
+	  			RPM_1 = ((uint16_t)rxMessage.frame.data1 << 8) | rxMessage.frame.data0;
+	  			RPM_2 = ((uint16_t)rxMessage.frame.data3 << 8) | rxMessage.frame.data2;
+	  			int RPM = ((int)RPM_2 << 16) | RPM_1; // Motor RPM data 4bytes
+	  			torque_buff = ((uint16_t)rxMessage.frame.data5 << 8) | rxMessage.frame.data4;// Motor Torque data 2bytes
+	  			temp_buff = ((uint16_t)rxMessage.frame.data7 << 8) | rxMessage.frame.data6;// Motor Temperature 2bytes
+	  			sprintf(RPM_RR,"%d",RPM);
+	  		}
+	  		else if (rxMessage.frame.id == 0x114)
+	  		{
+	  			motor_vol1= ((uint16_t)rxMessage.frame.data1 << 8) | rxMessage.frame.data0; //Motor_vol data 2bytes
+	  			motor_curr1= ((uint16_t)rxMessage.frame.data3 << 8) | rxMessage.frame.data2; //Motor_curr data 2bytes
+	  			batt_vol1= ((uint16_t)rxMessage.frame.data5 << 8) | rxMessage.frame.data4; //Batt vol data 2bytes
+	  			batt_curr1= ((uint16_t)rxMessage.frame.data7 << 8) | rxMessage.frame.data6; //Batt_curr data 2bytes
+	  		}
+	  		else if (rxMessage.frame.id == 0x112)
+	  		{
+					torque_demand1= ((uint16_t)rxMessage.frame.data1 << 8) | rxMessage.frame.data0; //torque_demand data 2bytes
+					throttle_input_vol1= ((uint16_t)rxMessage.frame.data3 << 8) | rxMessage.frame.data2; //throttle_input_vol data 2bytes
+					heatsink_temp1= (uint8_t)rxMessage.frame.data4; // heatsink_temp data 1bytes
+					//uint16_t motor_curr1= ((uint16_t)rxMessage.frame.data7 << 8) | rxMessage.frame.data6; //Motor current data 2bytes
+	  		}
+	  	}
+	  	else
+	  	{
+	  		HAL_Delay(10);
+	  	}
+	  }
+//------------------------------------ **** 7Segment ****------------------------------------//
+
+	  //tm1637DisplayDecimal(RPM_RR,1);//Display 7-segment for motor data
+
+//------------------------------------ **** RF_Trans ****------------------------------------//
+	  mxTxData.rpm = RPM;
+	  mxTxData.motor_temp = temp_buff;
+	  mxTxData.heatsink_temp = heatsink_temp1;
+	  mxTxData.motor_torq = torque_buff * 0.1;
+	  mxTxData.motor_torque_demand = motor_torque_demand1*0.1;
+	  mxTxData.motor_vol= motor_vol1;
+	  mxTxData.motor_curr= motor_curr1;
+	  mxTxData.batt_vol= batt_vol1;
+	  mxTxData.batt_curr= batt_curr1;
+	  mxTxData.throttle_input_vol=throttle_input_vol1;
+	  NRF24_write(mxTxData, sizeof(mxTxData));
+  }
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+  /* USER CODE END 3 */
+}
+
+/**
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  /** Configure the main internal regulator output voltage
+  */
+  __HAL_RCC_PWR_CLK_ENABLE();
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 8;
+  RCC_OscInitStruct.PLL.PLLN = 180;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 2;
+  RCC_OscInitStruct.PLL.PLLR = 2;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Activate the Over-Drive mode
+  */
+  if (HAL_PWREx_EnableOverDrive() != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+//}
+}
+
+/* USER CODE BEGIN 4 */
+
+/* USER CODE END 4 */
+
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
+
+  /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef  USE_FULL_ASSERT
+/**
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+  /* USER CODE BEGIN 6 */
+  /* User can add his own implementation to report the file name and line number,
+     tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
+
+/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

@@ -152,9 +152,6 @@ int main(void)
  	tm1637Init();
   tm1637SetBrightness(3);
  //------------------------------------ **** CAN_Motor ****------------------------------------//
-  memset(txMessage, 0x0, sizeof(txMessage));
-  txMessage.frame.dlc = 8;// Data length
-  
   while (1){
   	txMessage.frame.id = 0x205;// To Listen Motor PDO data
 	  CANSPI_Transmit(&txMessage);// Send Tx Message to get PDO data

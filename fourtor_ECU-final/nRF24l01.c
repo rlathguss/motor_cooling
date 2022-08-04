@@ -44,12 +44,7 @@ void loop() {//Read ECU Data and print to use Node.js
   Serial.print(data.batt_curr);
   Serial.print(" ");
   Serial.print(data.throttle_input_vol);
-  Serial.print(" ");
-
-
-
-
-  Serial.println();
+  Serial.println(" ");
 }
-delay(200);
+delay(100);
 }
