@@ -34,7 +34,8 @@ const uint64_t TxpipeAddrs = 0xE8E8F0F0E1LL; // RF pipe to send
 struct {
 	int rpm;//for Motor Data
 	float motor_torq,motor_torque_demand;//for IMU and Motor Data
-	uint16_t motor_temp,motor_vol,batt_vol,motor_curr,batt_curr;//for telemetry
+	uint16_t motor_temp,motor_vol,batt_vol,motor_curr,batt_curr,throttle_input_vol;//for telemetry
+  uint8_t heatsink_temp;
 }mxTxData;//To send data
 char RPM_RR[10];
 uCAN_MSG txMessage;
@@ -115,7 +116,7 @@ int main(void)
 					uint16_t torque_demand1= ((uint16_t)rxMessage2.frame.data1 << 8) | rxMessage.frame.data0; //torque_demand data 2bytes
 					uint16_t throttle_input_vol1= ((uint16_t)rxMessage.frame.data3 << 8) | rxMessage.frame.data2; //throttle_input_vol data 2bytes
 					uint8_t heatsink_temp1= (uint8_t)rxMessage.frame.data4; // heatsink_temp data 1bytes
-					uint16_t motor_curr1= ((uint16_t)rxMessage.frame.data7 << 8) | rxMessage.frame.data6; //Motor current data 2bytes
+					uint16_t /////////////= ((uint16_t)rxMessage.frame.data7 << 8) | rxMessage.frame.data6; //Motor current data 2bytes
 	  		}
 	  	}
 	  	else
@@ -132,10 +133,14 @@ int main(void)
   mxTxData.motor_temp = temp_buff;
   mxTxData.motor_torq = torque_buff * 0.1;
   mxTxData.motor_torque_demand = motor_torque_demand1*0.1;
-  mxTxData.motor_vol= motor_vol1;
-  mxTxData.batt_vol= batt_vol1;
-  mxTxData.motor_curr= motor_curr1;
-  mxTxData.batt_curr= batt_curr1;
+  mxTxData.motor_vol = motor_vol1;
+  mxTxData.motor_curr = motor_curr1;
+  mxTxData.batt_vol = batt_vol1;
+  mxTxData.batt_curr = batt_curr1;
+  mxTxData.torque_demand = torque_demand1;
+  mxTxData.throttle_input_vol = throttle_input_vol1;
+  mxTxData.heatsink_temp = heatsink_temp1;
+
 
   NRF24_write(mxTxData, sizeof(mxTxData));//
 	}

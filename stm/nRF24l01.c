@@ -6,10 +6,11 @@ RF24 radio(9, 6); // in SPI bus to set nRF24L01 radio
 
 const uint64_t address = 0xE8E8F0F0E1LL;// Pipeline
 struct data{
-  int RPM;
-  float motor_torq,motor_torque_demand;
-  uint8_t motor_temp,motor_vol,batt_vol,motor_curr;
-};//Data struct
+	int rpm;
+	float motor_torq,motor_torque_demand;
+	uint16_t motor_temp,motor_vol,batt_vol,motor_curr,batt_curr,throttle_input_vol;
+  uint8_t heatsink_temp;
+};
 void setup() {
   Serial.begin(9600);
   radio.begin();
@@ -19,14 +20,16 @@ void setup() {
   //for your module distance
   //For MAX level to operate you should use by-pass capacitor between 3.3V and GND
   radio.startListening(); //Setting Module to Listener
-  Serial.println("RPM | Motor_temp | Motor_torque | Motor_torque_demand | Motor_vol | Batt_vol | Motor_curr");
+  Serial.println("RPM | Motor_temp | heatsink_temp | Motor_torque | Motor_torque_demand | Motor_vol | Motor_curr | Batt_vol | batt_curr | throttle_input_vol");
 }
 void loop() {//Read ECU Data and print to use Node.js
   if (radio.available()){ 
-  radio.read(data,16);
+  radio.read(data,30);
   Serial.print(data.RPM);
   Serial.print(" ");
   Serial.print(data.motor_temp);
+  Serial.print(" ");
+  Serial.print(data.heatsink_temp);
   Serial.print(" ");
   Serial.print(data.motor_torq);
   Serial.print(" ");
@@ -34,9 +37,18 @@ void loop() {//Read ECU Data and print to use Node.js
   Serial.print(" ");
   Serial.print(data.motor_vol);
   Serial.print(" ");
+  Serial.print(data.motor_curr);
+  Serial.print(" ");
   Serial.print(data.batt_vol);
   Serial.print(" ");
-  Serial.print(data.motor_curr);
+  Serial.print(data.batt_curr);
+  Serial.print(" ");
+  Serial.print(data.throttle_input_vol);
+  Serial.print(" ");
+
+
+
+
   Serial.println();
 }
 delay(200);
