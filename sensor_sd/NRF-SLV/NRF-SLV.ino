@@ -141,7 +141,7 @@ void setup(){
 
   while(true){
     if(radio.begin()){
-      int i1,i2;
+      int i2;
       radio.startListening();  //수신모드 master 보드에서 실행하는 신호를 보내야지 진행가능
       radio.read(&i2,sizeof(i2));
       //Serial.println(i2);
@@ -152,7 +152,7 @@ void setup(){
           delay(500);
           break;
         }
-        if (i1 == 10280){ 
+        if (i2 == 10280){ 
           soft_restart();
         }
      }

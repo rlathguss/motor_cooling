@@ -35,9 +35,6 @@ void setup() {
     soft_restart();
     }
   }
- 
-
-
 
   while(1){
     if(radio.begin()){
@@ -59,7 +56,6 @@ void setup() {
     }
   }
   
-
   while(1){
     if(radio.begin()){
       int c2;

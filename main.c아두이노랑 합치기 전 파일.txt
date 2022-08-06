@@ -35,8 +35,6 @@
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
-#include "SoftReset.h"
-
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -151,100 +149,22 @@ int main(void)
 	NRF24_setPALevel(RF24_PA_0dB);
 	NRF24_setAutoAck(false);
 	NRF24_setChannel(80);
-	NRF24_setPayloadSize(25);
+	NRF24_setPayloadSize(28);
 	NRF24_setDataRate(RF24_2MBPS);
 	NRF24_openWritingPipe(TxpipeAddrs);
-  NRF24_openReadingPipe(0, TxpipeAddrs);
 	NRF24_stopListening();
 
  //------------------------------------ **** MCP2515 Setting ****------------------------------------//
   CANSPI_Initialize();
  //------------------------------------ **** Segment Setting ****------------------------------------//
- 	tm1637Init();
-  tm1637SetBrightness(3);
-  tm1637DisplayDecimal(9999,1);
-  HAL_Delay(1000);
+ 	//tm1637Init();
+  //tm1637SetBrightness(3);
  //------------------------------------ **** CAN_Motor ****------------------------------------//
   uint16_t RPM_1,RPM_2,torque_buff,temp_buff,motor_vol1,motor_curr1, batt_vol1,batt_curr1,torque_demand1,throttle_input_vol1;
   uint8_t heatsink_temp1;
   int RPM, lin_vel=0;
   
-   while(1){
-    if(NRF24_begin(GPIOB, GPIO_PIN_6, GPIO_PIN_4, hspi3)){
-      int i1;
-      NRF24_startListening();  //수신모드 master 보드에서 실행하는 신호를 보내야지 진행가능
-      NRF24_read(&i1,sizeof(i1));
-      //Serial.println(i1);
-      delay(10);
-        if(i1 == 1){
-          //Serial.println("Slv started");
-          //delay(500);
-          break;
-        }
-        if (i1 == 40){ 
-          soft_restart();
-        }
-     }
-  }
-
-  for(int i=0;i<30;i++){
-    if (NRF24_begin(GPIOB, GPIO_PIN_6, GPIO_PIN_4, hspi3)){                        //-------- 통신이 잘 시작되면 1111 출력
-      tm1637DisplayDecimal(1111,1);
-      int c1 = 1;
-      NRF24_stopListening();
-      NRF24_write(&c1,sizeof(c1));
-      //Serial.println(c1);
-      delay(10);
-    }
-    else{
-      tm1637DisplayDecimal(4411,1);
-      NRF24_stopListening();
-      int c2 = 2;
-      NRF24_write(&c2,sizeof(c2));
-      //Serial.println(c2);
-      delay(10);
-    }
-  }
-  for(int i=0;i<30;i++){
-    if(analogRead(A0)<1000&&analogRead(A1)<1000&&analogRead(A2)<1000){ //센서값 잘 들어오면 2222 출력
-      tm1637DisplayDecimal(2222,1);
-      int c3 = 3;
-      NRF24_stopListening();
-      NRF24_write(&c3,sizeof(c3));
-      //Serial.println(c3);
-      delay(10);
-    }
-    else{
-      tm1637DisplayDecimal(4422,1);
-      int c4 = 4;
-      NRF24_stopListening();
-      NRF24_write(&c4,sizeof(c4));
-      //Serial.println(c4);
-      delay(10);
-    }
-  }
-
-
-  while(true){
-    if(NRF24_begin(GPIOB, GPIO_PIN_6, GPIO_PIN_4, hspi3)){
-      int i2;
-      NRF24_startListening();  //수신모드 master 보드에서 실행하는 신호를 보내야지 진행가능
-      NRF24_read(&i2,sizeof(i2));
-      //Serial.println(i2);
-      delay(10);
-        if(i2 == 10){
-          //Serial.println("Start recording");
-          tm1637DisplayDecimal(3333,1);
-          delay(500);
-          break;
-        }
-        if (i2 == 40){ 
-          soft_restart();
-        }
-     }
-  }
-
-
+  
   while (1){
   	txMessage.frame.idType=0x000;
     txMessage.frame.dlc=8;// Data length
@@ -293,6 +213,7 @@ int main(void)
 					torque_demand1= ((uint16_t)rxMessage.frame.data1 << 8) | rxMessage.frame.data0; //torque_demand data 2bytes
 					throttle_input_vol1= ((uint16_t)rxMessage.frame.data3 << 8) | rxMessage.frame.data2; //throttle_input_vol data 2bytes
 					heatsink_temp1= (uint8_t)rxMessage.frame.data4; // heatsink_temp data 1bytes
+					//uint16_t motor_curr1= ((uint16_t)rxMessage.frame.data7 << 8) | rxMessage.frame.data6; //Motor current data 2bytes
 	  		}
 	  	}
 	  	else
@@ -301,8 +222,8 @@ int main(void)
 	  	}
 	  }
 //------------------------------------ **** 7Segment ****------------------------------------//
-    lin_vel = (Diameter) *RPM * 3.14 * 60/1000000;   //KM/H
-	  tm1637DisplayDecimal(lin_vel,1);//Display 7-segment for motor data
+    //lin_vel = (Diameter) *RPM * 3.14 * 60/1000000;   //KM/H
+	  //tm1637DisplayDecimal(lin_vel,1);//Display 7-segment for motor data
 
 //------------------------------------ **** RF_Trans ****------------------------------------//
 	  mxTxData.rpm = RPM;
@@ -317,15 +238,6 @@ int main(void)
 	  mxTxData.batt_curr= batt_curr1;
 	  mxTxData.throttle_input_vol=throttle_input_vol1;
 	  NRF24_write((void*)(&mxTxData),sizeof(mxTxData));
-
-    int i3;
-    NRF24_startListening();  //수신모드 master 보드에서 실행하는 신호를 보내야지 진행가능
-    NRF24_read(&i3,sizeof(i3));
-    if (i3 == 40){ 
-      soft_restart();
-  }
-
-
   }
     /* USER CODE END WHILE */
 
