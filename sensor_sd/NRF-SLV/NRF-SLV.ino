@@ -16,7 +16,7 @@ const float steinconstC = 0.000000222855858126706000;
 const byte CLK1 = 3;   // define CLK pin (any digital pin)
 const byte DIO1 = 4;   // define DIO pin (any digital pin)
 int interruptPin = 2;
-const float Diameter = 100.0;  //mm단위
+const float Diameter = 325.0;  //mm단위
 const uint8_t SEG_DONE[] = {
   SEG_B | SEG_C | SEG_D | SEG_E | SEG_G,           // d
   SEG_A | SEG_B | SEG_C | SEG_D | SEG_E | SEG_F,   // O
@@ -49,7 +49,7 @@ const uint8_t SEG_RECD[] = {
 };
 TM1637Display display(CLK1, DIO1);// define dispaly object
 uint8_t data[] = { 0x0, 0x0, 0x0, 0x0 };  // all segments clear
-int rpm;
+int rpm=0;
 float rev=0;
 unsigned long oldtime=0;
 unsigned long times;
