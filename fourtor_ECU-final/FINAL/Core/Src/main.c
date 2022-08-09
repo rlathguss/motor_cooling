@@ -55,9 +55,9 @@ extern TIM_HandleTypeDef htim1;
 const uint64_t TxpipeAddrs = 0xE8E8F0F0E1LL; // RF pipe to send
 struct {
 	int rpm, lin_vel_16;//for Motor Data
-		float motor_torq,motor_torque_demand;//for IMU and Motor Data
-		uint16_t motor_temp,motor_vol,batt_vol,motor_curr,batt_curr,throttle_input_vol;//for telemetry
-		uint8_t heatsink_temp;
+	float motor_torq,motor_torque_demand;//for IMU and Motor Data
+	uint16_t motor_temp,motor_vol,batt_vol,motor_curr,batt_curr,throttle_input_vol;//for telemetry
+	uint8_t heatsink_temp;
 }mxTxData;//To send data
 char RPM_RR[10];
 uCAN_MSG txMessage;
@@ -162,8 +162,7 @@ int main(void)
  //------------------------------------ **** Segment Setting ****------------------------------------//
  	tm1637Init();
   tm1637SetBrightness(3);
-  tm1637DisplayDecimal(9999,1);
-  HAL_Delay(1000);
+
  //------------------------------------ **** CAN_Motor ****------------------------------------//
   uint16_t RPM_1,RPM_2,torque_buff,temp_buff,motor_vol1,motor_curr1, batt_vol1,batt_curr1,torque_demand1,throttle_input_vol1;
   uint8_t heatsink_temp1;
@@ -171,11 +170,12 @@ int main(void)
   
    while(1){
     if(NRF24_begin(GPIOB, GPIO_PIN_6, GPIO_PIN_4, hspi3)){
+      tm1637DisplayDecimal(9999,1);
       int i1;
       NRF24_startListening();  //수신모드 master 보드에서 실행하는 신호를 보내야지 진행가능
       NRF24_read(&i1,sizeof(i1));
       //Serial.println(i1);
-      delay(10);
+      HAL_delay(10);
         if(i1 == 1){
           //Serial.println("Slv started");
           //delay(500);
@@ -188,13 +188,13 @@ int main(void)
   }
 
   for(int i=0;i<30;i++){
-    if (NRF24_begin(GPIOB, GPIO_PIN_6, GPIO_PIN_4, hspi3)){                        //-------- 통신이 잘 시작되면 1111 출력
+    if (CANSPI_Initialize()){                        //-------- can 통신이 잘 시작되면 1111 출력
       tm1637DisplayDecimal(1111,1);
       int c1 = 1;
       NRF24_stopListening();
       NRF24_write(&c1,sizeof(c1));
       //Serial.println(c1);
-      delay(10);
+      HAL_delay(10);
     }
     else{
       tm1637DisplayDecimal(4411,1);
@@ -202,7 +202,7 @@ int main(void)
       int c2 = 2;
       NRF24_write(&c2,sizeof(c2));
       //Serial.println(c2);
-      delay(10);
+      HAL_delay(10);
     }
   }
   for(int i=0;i<30;i++){
@@ -212,7 +212,7 @@ int main(void)
       NRF24_stopListening();
       NRF24_write(&c3,sizeof(c3));
       //Serial.println(c3);
-      delay(10);
+      HAL_delay(10);
     }
     else{
       tm1637DisplayDecimal(4422,1);
@@ -220,7 +220,7 @@ int main(void)
       NRF24_stopListening();
       NRF24_write(&c4,sizeof(c4));
       //Serial.println(c4);
-      delay(10);
+      HAL_delay(10);
     }
   }
 
@@ -231,11 +231,11 @@ int main(void)
       NRF24_startListening();  //수신모드 master 보드에서 실행하는 신호를 보내야지 진행가능
       NRF24_read(&i2,sizeof(i2));
       //Serial.println(i2);
-      delay(10);
+      HAL_delay(10);
         if(i2 == 10){
           //Serial.println("Start recording");
           tm1637DisplayDecimal(3333,1);
-          delay(500);
+          HAL_delay(500);
           break;
         }
         if (i2 == 40){ 
