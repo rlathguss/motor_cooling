@@ -56,7 +56,7 @@ unsigned long times;
 int lin_vel=0;
 
 void setup(){
-  display.setBrightness(0x0f); // set brightness of dispaly 1
+  display.setBrightness(0x0f);
   display.showNumberDec(9999);
   delay(1000);
   Serial.begin(115200);
@@ -204,15 +204,9 @@ void loop() {
   sen3 += steinconstA;                     
   sen3 = 1.0/sen3;                  
   sen3 -= 273.15;
-  float time;
-  time = millis() / 1000.0;
-  //Serial.print(time);
-  //Serial.print(" , ");Serial.print(sen1);
-  //Serial.print(" , ");Serial.print(sen2);
-  //Serial.print(" , ");Serial.println(sen3); //디버깅용
   float sen11=sen1,sen22=sen2,sen33=sen3;
+  
   float sensor_data[4];
-  //sensor_data[0]=time; 
   sensor_data[0]=sen11; sensor_data[1]=sen22; sensor_data[2]=sen33; sensor_data[3]=lin_vel_16;
   radio.stopListening(); //송신모드
   radio.write(sensor_data,sizeof(sensor_data));
