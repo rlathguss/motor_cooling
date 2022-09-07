@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "RF24.h"
-//#include "SoftReset.h"
 
 #define slave1 0x205
 #define slave2 0x114
@@ -22,51 +21,22 @@ const byte CLK = 3;   // define CLK pin (any digital pin)
 const byte DIO = 4;   // define DIO pin (any digital pin)
 uint8_t address[6] = "41715";
 byte data[8] = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
-const float Diameter = 325.0;  //mm단위
-const uint8_t SEG_DONE[] = {
-  SEG_B | SEG_C | SEG_D | SEG_E | SEG_G,           // d
-  SEG_A | SEG_B | SEG_C | SEG_D | SEG_E | SEG_F,   // O
-  SEG_C | SEG_E | SEG_G,                           // n
-  SEG_A | SEG_D | SEG_E | SEG_F | SEG_G            // E
-};
-const uint8_t SEG_ERR1[] = {
-  SEG_A | SEG_D | SEG_E | SEG_F | SEG_G,            // E
-  SEG_E | SEG_G,                                    // R
-  SEG_E | SEG_G,                                    // R
-  SEG_B | SEG_C                                     // 1
-};
-const uint8_t SEG_ERR2[] = {
-  SEG_A | SEG_D | SEG_E | SEG_F | SEG_G,            // E
-  SEG_E | SEG_G,                                    // R
-  SEG_E | SEG_G,                                    // R
-  SEG_A | SEG_B | SEG_D | SEG_E | SEG_G             // 2
-};
-const uint8_t SEG_ERR3[] = {
-  SEG_A | SEG_D | SEG_E | SEG_F | SEG_G,            // E
-  SEG_E | SEG_G,                                    // R
-  SEG_E | SEG_G,                                    // R
-  SEG_A | SEG_B | SEG_C | SEG_D | SEG_G             // 3
-};
-const uint8_t SEG_RECD[] = {
-  SEG_E | SEG_G,                                    // R
-  SEG_A | SEG_D | SEG_E | SEG_F | SEG_G,            // E
-  SEG_A | SEG_D | SEG_E | SEG_F,                    // C
-  SEG_B | SEG_C | SEG_D | SEG_E | SEG_G             // d
-};
+const float Diameter = 525.0;  //mm단위
 TM1637Display display(CLK, DIO);// define dispaly object
 long RPM=0;
 int lin_vel=0;
 float sen11,sen22,sen33;
-uint16_t RPM_1,RPM_2,torque_buff,motor_temp,motor_vol,motor_curr, batt_vol,batt_curr,torque_demand,throttle_input_vol;
+uint16_t RPM_1,RPM_2,motor_temp,motor_vol,batt_vol,throttle_input_vol;
+int16_t torque_buff,motor_curr,batt_curr,torque_demand;
 uint8_t heatsink_temp;
 void temp(float sensor_value1,float sensor_value2,float sensor_value3);
+void mcp2515_send(unsigned int id, byte data[]);
 unsigned int mcp2515_receive1(byte recv[]);
 unsigned int mcp2515_receive2(byte recv[]);
 unsigned int mcp2515_receive3(byte recv[]);
 
+
 void setup() {
-  display.setBrightness(0x0f);
-  display.showNumberDec(9999);
   Serial.begin(115200);
   mcp2515.reset();
   mcp2515.setBitrate(CAN_1000KBPS);
@@ -75,116 +45,17 @@ void setup() {
   radio.setPALevel(RF24_PA_MAX); 
   radio.openWritingPipe(address);
   radio.openReadingPipe(1, address);
-  radio.startListening(); //기본 :  송신모드
-//  digitalWrite(10,LOW);
-//  digitalWrite(8,HIGH);
-//  /////////////////////////////////////////Slv Start 0000////////////////////////////////////////
-//  while(1){
-//    if(radio.begin()){
-//      int i1;
-//      radio.startListening();  
-//      radio.read(&i1,sizeof(i1));
-//      delay(10);
-//      Serial.println(i1);
-//        if(i1 == 1){
-//          Serial.println("Slv started");
-//          display.showNumberDec(0000);
-//          delay(300);
-//          break;
-//        }
-//        if (i1 == 10280){ 
-//          //soft_restart();
-//        }
-//     }
-//  }
-//
-//  /////////////////////////////////////////Radio check 1111//////////////////////////////////////
-//  for(int i=0;i<30;i++){
-//    if (radio.begin()){                        
-//      display.showNumberDec(1111);
-//      int c1 = 1;
-//      radio.stopListening();
-//      radio.write(&c1,sizeof(c1));
-//      Serial.println(c1);
-//      delay(10);
-//    }
-//    else{
-//      display.setSegments(SEG_ERR1);
-//      radio.stopListening();
-//      int c2 = 2;
-//      radio.write(&c2,sizeof(c2));
-//      Serial.println(c2);
-//      delay(10);
-//    }
-//  }
-//
-//  ///////////////////////////////////analogpin input check 2222//////////////////////////////////
-//  for(int i=0;i<30;i++){
-//    if(analogRead(A0)<1000&&analogRead(A1)<1000&&analogRead(A2)<1000){ 
-//      display.showNumberDec(2222);
-//      int c3 = 3;
-//      radio.stopListening();
-//      radio.write(&c3,sizeof(c3));
-//      Serial.println(c3);
-//      delay(10);
-//    }
-//    else{
-//      display.setSegments(SEG_ERR2);
-//      int c4 = 4;
-//      radio.stopListening();
-//      radio.write(&c4,sizeof(c4));
-//      Serial.println(c4);
-//      delay(10);
-//    }
-//  }
-//
-//  /////////////////////////////////////////Can Trans check 3333//////////////////////////////////
-//  for(int i=0;i<30;i++){
-//    if(digitalRead(2)==LOW||digitalRead(2)==HIGH){ 
-//      display.showNumberDec(3333);
-//      int c5= 5;
-//      radio.stopListening();
-//      radio.write(&c5,sizeof(c5));
-//      Serial.println(c5);
-//      delay(10);
-//    }
-//    else{
-//      display.setSegments(SEG_ERR3);
-//      int c6 = 6;
-//      radio.stopListening();
-//      radio.write(&c6,sizeof(c6));
-//      Serial.println(c6);
-//      delay(10);
-//    }
-//  }
-//
-//  /////////////////////////////////////////Record OR Reset///////////////////////////////////////
-//  while(1){
-//    if(radio.available()){
-//      int i2;
-//      radio.startListening();  
-//      radio.read(&i2,sizeof(i2));
-//      Serial.println(i2);
-//      delay(10);
-//        if(i2 == 2570){
-//          Serial.println("Start recording");
-//          display.setSegments(SEG_RECD);
-//          delay(500);
-//          break;
-//        }
-//        if (i2 == 10280){ 
-//          //soft_restart();
-//        }
-//     }
-//  } 
+  radio.stopListening(); //기본 :  송신모드
   delay(10);
 }
 
 
-
 void loop() {
+
   temp(analogRead(A0),analogRead(A1),analogRead(A2));
-  
+  digitalWrite(8,LOW);
+  digitalWrite(10,HIGH);
+  delay(10);
   /////////////////////////////////////////Request slave1//////////////////////////////////////
   mcp2515_send(slave1,data);
 
@@ -194,13 +65,13 @@ void loop() {
   if(id == -1){
     Serial.println("슬레이브1 오프라인!");
   }else{
-    RPM_1 = ((uint16_t)recv1[0] << 8) | recv1[1];
-	  RPM_2 = ((uint16_t)recv1[2]<< 8) | recv1[3];
-	  RPM = ((long)RPM_1 << 16) | RPM_2; // Motor RPM data 4bytes
-	  torque_buff = ((uint16_t)recv1[4] << 8) | recv1[5];// Motor Torque data 2bytes
-	  motor_temp = ((uint16_t)recv1[6] << 8) | recv1[7];// Motor Temperature 2bytes
-    lin_vel = (Diameter) * RPM * PI * 60/1000000;   //KM/H
-    display.showNumberDec(lin_vel);
+    RPM_1 = ((uint16_t)recv1[1] << 8) | recv1[0];
+    RPM_2 = ((uint16_t)recv1[3]<< 8) | recv1[2];
+    RPM = ((long)RPM_2 << 16) | RPM_1; // Motor RPM data 4bytes
+    torque_buff = ((int16_t)recv1[5] << 8) | recv1[4];// Motor Torque data 2bytes
+    motor_temp = ((uint16_t)recv1[7] << 8) | recv1[6];// Motor Temperature 2bytes
+    lin_vel = (Diameter) * RPM * PI * 60/1000000/5.5  //KM/H  기어비 5.5 
+    display.showNumberDec(RPM);
   }delay(10);
   
   /////////////////////////////////////////Request slave2//////////////////////////////////////
@@ -212,24 +83,24 @@ void loop() {
   if(id == -1){
     Serial.println("슬레이브2 오프라인!");
   }else{
-    motor_vol= ((uint16_t)recv2[0] << 8) | recv2[1]; //Motor_vol data 2bytes
-	  motor_curr= ((uint16_t)recv2[2] << 8) | recv2[3]; //Motor_curr data 2bytes
-	  batt_vol= ((uint16_t)recv2[4] << 8) | recv2[5]; //Batt vol data 2bytes
-	  batt_curr= ((uint16_t)recv2[6] << 8) | recv2[7]; //Batt_curr data 2bytes
+    motor_vol= ((uint16_t)recv2[1] << 8) | recv2[0]; //Motor_vol data 2bytes
+    motor_curr= ((int16_t)recv2[3] << 8) | recv2[2]; //Motor_curr data 2bytes
+    batt_vol= ((uint16_t)recv2[5] << 8) | recv2[4]; //Batt vol data 2bytes
+    batt_curr= ((int16_t)recv2[7] << 8) | recv2[6]; //Batt_curr data 2bytes
   }delay(10);
 
   /////////////////////////////////////////Request slave3//////////////////////////////////////
   byte recv3[8];
   mcp2515_send(slave3,data);
-
+  
   //Response slave3
   id = mcp2515_receive3(recv3);
   if(id == -1){
     Serial.println("슬레이브3 오프라인!");
   }else{
-		torque_demand= ((uint16_t)recv3[0]<< 8) | recv3[1]; //torque_demand data 2bytes
-		throttle_input_vol= ((uint16_t)recv3[2] << 8) | recv3[3]; //throttle_input_vol data 2bytes
-		heatsink_temp= (uint8_t)recv3[4]; // heatsink_temp data 1bytes
+      torque_demand= ((int16_t)recv3[1]<< 8) | recv3[0]; //torque_demand data 2bytes
+      throttle_input_vol= ((uint16_t)recv3[3] << 8) | recv3[2]; //throttle_input_vol data 2bytes
+      heatsink_temp= (uint8_t)recv3[4]; // heatsink_temp data 1bytes
   }delay(10);
 
   /////////////////////////////////////////Datapack RF Trans//////////////////////////////////////
@@ -238,13 +109,14 @@ void loop() {
   datapack[1]=sen11; datapack[2]=sen22; datapack[3]=sen33; datapack[4]=RPM;
   datapack[5]=lin_vel; datapack[6]=motor_temp; datapack[7]=heatsink_temp; 
   datapack1[0]=8;
-  datapack1[1]= torque_buff*0.1; datapack1[2]= torque_demand*0.1; datapack1[3]= motor_vol;
-  datapack1[4]= motor_curr; datapack1[5]= batt_vol; datapack1[6]= batt_curr; 
-  datapack1[7]= throttle_input_vol;
+  datapack1[1]= torque_buff*0.0625; datapack1[2]= torque_demand*0.0625; datapack1[3]= motor_vol*0.0625;
+  datapack1[4]= motor_curr*0.0625; datapack1[5]= batt_vol*0.0625; datapack1[6]= batt_curr*0.0625; 
+  datapack1[7]= throttle_input_vol*0.00390625;
 
   radio.stopListening(); //송신모드
   radio.write(datapack,sizeof(datapack));
   radio.write(datapack1,sizeof(datapack1));
+  
 //  for(int i =0;i<7;i++){
 //    Serial.print(datapack[i],HEX);
 //    Serial.print(" ");}
@@ -254,22 +126,9 @@ void loop() {
 //    }
 //    Serial.println("");
     delay(10);
-
- 
-  ///////////////////////////////////////////////Reset/////////////////////////////////////////////
-//  radio.startListening();
-//  if(radio.available()){
-//  int i3;
-//    radio.read(&i3,sizeof(i3));
-//    if (i3 == 40){ 
-//      //soft_restart();
-//    }
-//  }
-//  digitalWrite(10,HIGH);
-//  digitalWrite(8,LOW);
 }
 
-
+/////////////////////////////////////////////////////////////send/////////////////////////////////////////
 void mcp2515_send(unsigned int id, byte data[]){
   struct can_frame canMsg;
   canMsg.can_id  = id; //슬레이브의 ID
@@ -279,12 +138,12 @@ void mcp2515_send(unsigned int id, byte data[]){
   }
   mcp2515.sendMessage(&canMsg);
    //Serial.println("[모터 컨트롤러에 보낸 메시지]");
-   //Serial.println(id,HEX);
+   Serial.println(id,HEX);
    for (int i = 0; i<canMsg.can_dlc; i++)  {
-    //Serial.print(canMsg.data[i],HEX);
-    //Serial.print(" ");
+    Serial.print(canMsg.data[i],HEX);
+    Serial.print(" ");
    }
-   //Serial.println();
+   Serial.println();
 }
 
 /////////////////////////////////////////////////////////////receive1/////////////////////////////////////////
@@ -299,10 +158,10 @@ unsigned int mcp2515_receive1(byte recv[]){
     if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK && canMsg.can_id == slave1) {
       for(int i =0;i<8;i++){
         recv[i] = canMsg.data[i];
-//        Serial.print(recv[i],HEX);
-//        Serial.print(" ");
+        Serial.print(recv[i],HEX);
+        Serial.print(" ");
       }
-      //Serial.println();
+      Serial.println();
       return canMsg.can_id;
       break;
     }
@@ -321,10 +180,10 @@ unsigned int mcp2515_receive2(byte recv[]){
     if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK&& canMsg.can_id == slave2) {
       for(int i =0;i<8;i++){
         recv[i] = canMsg.data[i];
-        //Serial.print(recv[i],HEX);
-        //Serial.print(" ");
+        Serial.print(recv[i],HEX);
+        Serial.print(" ");
       }
-      //Serial.println();
+      Serial.println();
       return canMsg.can_id;
       break;
     }
@@ -343,10 +202,10 @@ unsigned int mcp2515_receive3(byte recv[]){
     if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK&& canMsg.can_id == slave3) {
       for(int i =0;i<8;i++){
         recv[i] = canMsg.data[i];
-        //Serial.print(recv[i],HEX);
-        //Serial.print(" ");
+        Serial.print(recv[i],HEX);
+        Serial.print(" ");
       }
-      //Serial.println();
+      Serial.println();
       return canMsg.can_id;
       break;
     }
@@ -384,4 +243,5 @@ void temp(float sensor_value1,float sensor_value2,float sensor_value3){
   sen11=sen1;
   sen22=sen2;
   sen33=sen3;
+  Serial.print(sen11);Serial.print(" ");Serial.print(sen22);Serial.print(" ");Serial.println(sen33);
 }
