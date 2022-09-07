@@ -3,8 +3,7 @@
 #include "SoftReset.h"
 #include <ArduinoJson.h>
 RF24 radio(9, 10); //CE, SS
-uint8_t address[6] = "41715";
-int nRecvMsg = 0; 
+uint8_t address[6] = "41715"; 
 bool is_datapack4 = false;
 bool is_datapack8 = false;
 
@@ -135,7 +134,7 @@ void setup() {
 //    soft_restart();
 //    }
 //  }
-Serial.println("Senor1, Senor2, Senor3, RPM, Lin_vel, Motor_temp, Heatsink_temp, Motor_torque, Torque_demand, Motor_vol, Motor_curr, Batt_vol, Batt_curr, Throttle_input_vol"); // legend
+//Serial.println("Senor1, Senor2, Senor3, RPM, Lin_vel, Motor_temp, Heatsink_temp, Motor_torque, Torque_demand, Motor_vol, Motor_curr, Batt_vol, Batt_curr, Throttle_input_vol"); // legend
 }
 
 
@@ -181,14 +180,35 @@ void loop() {
       is_datapack8 = true;
     }
     if(is_datapack4&&is_datapack8){
-      Serial.print(datalog[0]);Serial.print("  ");Serial.print(datalog[1]);Serial.print("  ");
-      Serial.print(datalog[2]);Serial.print("  ");Serial.print(datalog[3]);Serial.print("  ");
-      Serial.print(datalog[4]);Serial.print("  ");Serial.print(datalog[5]);Serial.print("  ");
-      Serial.print(datalog[6]);Serial.print("  ");Serial.print(datalog[7]);Serial.print("  ");
-      Serial.print(datalog[8]);Serial.print("  ");Serial.print(datalog[9]);Serial.print("  ");
-      Serial.print(datalog[10]);Serial.print("  ");Serial.print(datalog[11]);Serial.print("  ");
-      Serial.print(datalog[12]);Serial.print("  ");Serial.println(datalog[13]);
-      is_datapack4 = false; is_datapack8 = false;
+//      Serial.print(datalog[0]);Serial.print("  ");Serial.print(datalog[1]);Serial.print("  ");
+//      Serial.print(datalog[2]);Serial.print("  ");Serial.print(datalog[3]);Serial.print("  ");
+//      Serial.print(datalog[4]);Serial.print("  ");Serial.print(datalog[5]);Serial.print("  ");
+//      Serial.print(datalog[6]);Serial.print("  ");Serial.print(datalog[7]);Serial.print("  ");
+//      Serial.print(datalog[8]);Serial.print("  ");Serial.print(datalog[9]);Serial.print("  ");
+//      Serial.print(datalog[10]);Serial.print("  ");Serial.print(datalog[11]);Serial.print("  ");
+//      Serial.print(datalog[12]);Serial.print("  ");Serial.println(datalog[13]);
+
+        String output;
+        StaticJsonDocument<128> doc;
+
+        doc["Sensor1"] = datalog[0];
+        doc["Sensor2"] = datalog[1];
+        doc["Sensor3"] = datalog[2];
+        doc["RPM"] = datalog[3];
+        doc["Lin_vel"] = datalog[4];
+        doc["Motor_temp"] = datalog[5];
+        doc["Heatsink_temp"] = datalog[6];
+        doc["Motor_torque"] = datalog[7];
+        doc["Torque_demand"] = datalog[8];
+        doc["Motor_vol"] = datalog[9];
+        doc["Motor_curr"] = datalog[10];
+        doc["Batt_vol"] = datalog[11];
+        doc["Batt_curr"] = datalog[12];
+        doc["Throttle_input_vol"] = datalog[13];
+        
+        serializeJson(doc, output);
+        Serial.println(output);
+        is_datapack4 = false; is_datapack8 = false;
     }
   }
   delay(10);
@@ -210,33 +230,6 @@ void loop() {
     }
   }
 }
-
-
-//String output;
-//StaticJsonDocument<128> doc;
-//
-//doc["Sensor1"] = datapack[0];
-//doc["Sensor2"] = datapack[1];
-//doc["Sensor3"] = datapack[2];
-//doc["RPM"] = datapack[3];
-//doc["Lin_vel"] = datapack[4];
-//doc["Motor_temp"] = datapack[5];
-//doc["Heatsink_temp"] = datapack[6];
-//doc["Motor_torque"] = datapack1[0];
-//doc["Torque_demand"] = datapack1[1];
-//doc["Motor_vol"] = datapack1[2];
-//doc["Motor_curr"] = datapack1[3];
-//doc["Batt_vol"] = datapack1[4];
-//doc["Batt_curr"] = datapack1[5];
-//doc["Throttle_input_vol"] = datapack1[6];
-//
-//serializeJson(doc, output);
-//Serial.println(output);
-
-
-
-
-
 
 //Serial.println("Senor1, Senor2, Senor3, RPM, Lin_vel, Motor_temp, Heatsink_temp, Motor_torque, Torque_demand, Motor_vol, Motor_curr, Batt_vol, Batt_curr, Throttle_input_vol");
 //{"Sensor1":123,"Sensor2":123,"Sensor3":123,"RPM":123,"Lin_vel":123,"Motor_temp":123,"Heatsink_temp":123,"Motor_torque":123,"Torque_demand":123,"Motor_vol":123,"Motor_curr":123,"Batt_vol":123,"Batt_curr":123,"Throttle_input_vol":123,}

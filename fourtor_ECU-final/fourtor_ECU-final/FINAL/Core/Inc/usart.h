@@ -1,12 +1,12 @@
 /**
   ******************************************************************************
-  * File Name          : SPI.h
+  * File Name          : USART.h
   * Description        : This file provides code for the configuration
-  *                      of the SPI instances.
+  *                      of the USART instances.
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2022 STMicroelectronics.
+  * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
   * All rights reserved.</center></h2>
   *
   * This software component is licensed by ST under BSD 3-Clause license,
@@ -17,8 +17,8 @@
   ******************************************************************************
   */
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __spi_H
-#define __spi_H
+#ifndef __usart_H
+#define __usart_H
 #ifdef __cplusplus
  extern "C" {
 #endif
@@ -30,15 +30,19 @@
 
 /* USER CODE END Includes */
 
-extern SPI_HandleTypeDef hspi2;
-extern SPI_HandleTypeDef hspi3;
+extern UART_HandleTypeDef huart4;
+extern UART_HandleTypeDef huart5;
+extern UART_HandleTypeDef huart2;
+extern UART_HandleTypeDef huart6;
 
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
 
-void MX_SPI2_Init(void);
-void MX_SPI3_Init(void);
+void MX_UART4_Init(void);
+void MX_UART5_Init(void);
+void MX_USART2_UART_Init(void);
+void MX_USART6_UART_Init(void);
 
 /* USER CODE BEGIN Prototypes */
 
@@ -47,7 +51,7 @@ void MX_SPI3_Init(void);
 #ifdef __cplusplus
 }
 #endif
-#endif /*__ spi_H */
+#endif /*__ usart_H */
 
 /**
   * @}
