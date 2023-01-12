@@ -15,20 +15,19 @@ const float steinconstB = 0.000181450723833218;
 const float steinconstC = 0.000000222855858126706000; 
 
 
-RF24 radio(9, 10); //CE, SS
-MCP2515 mcp2515(8);   //cs핀 번호 설정
-const byte CLK = 3;   // define CLK pin (any digital pin)
-const byte DIO = 4;   // define DIO pin (any digital pin)
+RF24 radio(9, 8); //CE, CS
 uint8_t address[6] = "41715";
+
+MCP2515 mcp2515(10);   //cs핀 번호 설정
 byte data[8] = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+byte recv1[8], recv2[8], recv3[8];
 const float Diameter = 525.0;  //mm단위
-TM1637Display display(CLK, DIO);// define dispaly object
 long RPM=0;
 int lin_vel=0;
-float sen11,sen22,sen33;
 uint16_t RPM_1,RPM_2,motor_temp,motor_vol,batt_vol,throttle_input_vol;
 int16_t torque_buff,motor_curr,batt_curr,torque_demand;
 uint8_t heatsink_temp;
+float sen11,sen22,sen33;
 void temp(float sensor_value1,float sensor_value2,float sensor_value3);
 void mcp2515_send(unsigned int id, byte data[]);
 unsigned int mcp2515_receive1(byte recv[]);
@@ -36,32 +35,74 @@ unsigned int mcp2515_receive2(byte recv[]);
 unsigned int mcp2515_receive3(byte recv[]);
 
 
+volatile int flow_frequency; // Measures flow sensor pulses
+unsigned int l_min; // Calculated litres/min
+unsigned char flowsensor = 2; // Sensor Input
+unsigned long currentTime;
+unsigned long cloopTime;
+
+
+const int aena= 5;
+const int adir1=6;
+const int adir2=7;
+
+// const byte CLK = 3;   // define CLK pin (any digital pin)
+// const byte DIO = 4;   // define DIO pin (any digital pin)
+// TM1637Display display(CLK, DIO);// define dispaly object
+
+
+
 void setup() {
   Serial.begin(115200);
   mcp2515.reset();
   mcp2515.setBitrate(CAN_1000KBPS);
   mcp2515.setNormalMode();
+  
   radio.begin(); //아두이노-RF모듈간 통신라인
   radio.setPALevel(RF24_PA_MAX); 
   radio.openWritingPipe(address);
   radio.openReadingPipe(1, address);
   radio.stopListening(); //기본 :  송신모드
+  
+  pinMode(flowsensor, INPUT);
+  digitalWrite(flowsensor, HIGH);
+  attachInterrupt(0, flow, RISING); // Setup Interrupt
+  sei(); // Enable interrupts
+  currentTime = millis();
+  cloopTime = currentTime;
+
+
+  
+  pinMode(adir1,OUTPUT);    //l298n 모터 a 방향 결정 
+  pinMode(adir2,OUTPUT);    //l298n 모터 a 방향 결정 
   delay(10);
 }
 
 
 void loop() {
+  currentTime = millis(); // Every 0.5 second, calculate and print litres/min
+  if(currentTime >= (cloopTime + 500)){
+    cloopTime = currentTime; // Updates cloopTime
+    l_min = (2*flow_frequency / 11); // Pulse frequency (Hz) = 11Q, Q is flow rate in L/min.
+    flow_frequency = 0; // Reset Counter
+    Serial.print(l_min, DEC); // Print litres/min
+    Serial.println(" L/Min");
+  }
 
-  temp(analogRead(A0),analogRead(A1),analogRead(A2));
-  digitalWrite(8,LOW);
-  digitalWrite(10,HIGH);
+
+  digitalWrite(adir1,1);      // 디지털 6번 전진
+  digitalWrite(adir2,0);      // 디지털 7번 전진
+  analogWrite(aena,255);     //디지털 5번 핀이 a 모터 속도 조절 핀  0~255
+
+
+  //temp(analogRead(A0),analogRead(A1),analogRead(A2));
+  digitalWrite(8,HIGH);     //RF24 비활성화
+  digitalWrite(10,LOW);     //CAN 통신 활성화
   delay(10);
-  /////////////////////////////////////////Request slave1//////////////////////////////////////
-  mcp2515_send(slave1,data);
 
-  //Response slave1
-  byte recv1[8];
-  unsigned int id = mcp2515_receive1(recv1);
+  
+  mcp2515_send(slave1,data); //Request slave1
+  unsigned int id = mcp2515_receive1(recv1); //Response slave1
   if(id == -1){
     Serial.println("슬레이브1 오프라인!");
   }else{
@@ -71,15 +112,12 @@ void loop() {
     torque_buff = ((int16_t)recv1[5] << 8) | recv1[4];// Motor Torque data 2bytes
     motor_temp = ((uint16_t)recv1[7] << 8) | recv1[6];// Motor Temperature 2bytes
     lin_vel = (Diameter) * RPM * PI * 60/1000000/5.5  //KM/H  기어비 5.5 
-    display.showNumberDec(RPM);
+    //display.showNumberDec(RPM);
   }delay(10);
   
-  /////////////////////////////////////////Request slave2//////////////////////////////////////
-  byte recv2[8];
-  mcp2515_send(slave2,data);
-
-  //Response slave2
-  id = mcp2515_receive2(recv2);
+  
+  mcp2515_send(slave2,data); //Request slave2
+  id = mcp2515_receive2(recv2);//Response slave2
   if(id == -1){
     Serial.println("슬레이브2 오프라인!");
   }else{
@@ -89,12 +127,9 @@ void loop() {
     batt_curr= ((int16_t)recv2[7] << 8) | recv2[6]; //Batt_curr data 2bytes
   }delay(10);
 
-  /////////////////////////////////////////Request slave3//////////////////////////////////////
-  byte recv3[8];
-  mcp2515_send(slave3,data);
-  
-  //Response slave3
-  id = mcp2515_receive3(recv3);
+
+  mcp2515_send(slave3,data); //Request slave3
+  id = mcp2515_receive3(recv3);  //Response slave3
   if(id == -1){
     Serial.println("슬레이브3 오프라인!");
   }else{
@@ -103,7 +138,10 @@ void loop() {
       heatsink_temp= (uint8_t)recv3[4]; // heatsink_temp data 1bytes
   }delay(10);
 
-  /////////////////////////////////////////Datapack RF Trans//////////////////////////////////////
+  digitalWrite(8,LOW);     //RF24 활성화
+  digitalWrite(10,HIGH);     //CAN 통신 비활성화
+
+  //Datapack RF Trans
   float datapack[8],datapack1[8];
   datapack[0]=4;
   datapack[1]=sen11; datapack[2]=sen22; datapack[3]=sen33; datapack[4]=RPM;
@@ -128,7 +166,7 @@ void loop() {
     delay(10);
 }
 
-/////////////////////////////////////////////////////////////send/////////////////////////////////////////
+//////////////////////////////////////////////////////send/////////////////////////////////////////
 void mcp2515_send(unsigned int id, byte data[]){
   struct can_frame canMsg;
   canMsg.can_id  = id; //슬레이브의 ID
@@ -146,7 +184,7 @@ void mcp2515_send(unsigned int id, byte data[]){
    Serial.println();
 }
 
-/////////////////////////////////////////////////////////////receive1/////////////////////////////////////////
+///////////////////////////////////////////////////receive1/////////////////////////////////////////
 unsigned int mcp2515_receive1(byte recv[]){
   struct can_frame canMsg;
   unsigned long t = millis();
@@ -168,7 +206,7 @@ unsigned int mcp2515_receive1(byte recv[]){
   }
 }
 
-/////////////////////////////////////////////////////////////receive2/////////////////////////////////////////
+///////////////////////////////////////////////////receive2/////////////////////////////////////////
 unsigned int mcp2515_receive2(byte recv[]){
   struct can_frame canMsg;
   unsigned long t = millis();
@@ -190,7 +228,7 @@ unsigned int mcp2515_receive2(byte recv[]){
   }
 }
 
-/////////////////////////////////////////////////////////////receive3/////////////////////////////////////////
+/////////////////////////////////////////////////receive3/////////////////////////////////////////
 unsigned int mcp2515_receive3(byte recv[]){
   struct can_frame canMsg;
   unsigned long t = millis();
@@ -211,7 +249,8 @@ unsigned int mcp2515_receive3(byte recv[]){
     }
   }
 }
-///////////////////////////////////////////////////////////////////////////temp_sensor//////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////temp_sensor////////////////////////////////////////////////
 void temp(float sensor_value1,float sensor_value2,float sensor_value3){
   sensor_value1 = (coolantsensorDivider*sensor_value1)/(1023-sensor_value1);
   sensor_value2 = (coolantsensorDivider*sensor_value2)/(1023-sensor_value2);
@@ -244,4 +283,10 @@ void temp(float sensor_value1,float sensor_value2,float sensor_value3){
   sen22=sen2;
   sen33=sen3;
   Serial.print(sen11);Serial.print(" ");Serial.print(sen22);Serial.print(" ");Serial.println(sen33);
+}
+
+// Interrupt function
+void flow () 
+{
+flow_frequency++;
 }
