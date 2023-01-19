@@ -37,7 +37,7 @@ bool bM_Set = false;
 
 
 volatile int flow_frequency; // Measures flow sensor pulses
-unsigned int l_min; // Calculated litres/min
+uint16_t LPM; // Calculated litres/min
 unsigned char flowsensor = 2; // Sensor Input
 unsigned long currentTime1;
 unsigned long cloopTime1;
@@ -112,9 +112,9 @@ void loop() {
   if (currentTime1 >= (cloopTime1 + 500)) {
     
     cloopTime1 = currentTime1;                     // Updates cloopTime
-    l_min = (2 * flow_frequency / 11);             // Pulse frequency (Hz) = 11Q, Q is flow rate in L/min.
+    LPM = (2 * flow_frequency / 11);             // Pulse frequency (Hz) = 11Q, Q is flow rate in L/min.
     flow_frequency = 0;                            // Reset Counter
-    Serial.print(l_min, DEC);                      // Print litres/min
+    Serial.print(LPM, DEC);                      // Print litres/min
     Serial.println(" L/Min");
   }
 
@@ -244,8 +244,8 @@ void loop() {
   
   //Datapack RF Trans
   float datapack[8];
-  datapack[0] = RPM; datapack[1] = Motor_Temp; datapack[3] = PowerStage_Temp; datapack[4] = Air_Temp;
-  datapack[5] = l_min; datapack[6] = Torque_Out; datapack[7] = Torque_Set;
+  datapack[0] = RPM; datapack[1] = Motor_Temp; datapack[2] = PowerStage_Temp; datapack[3] = Air_Temp;
+  datapack[4] = LPM; datapack[5] = Torque_Out; datapack[6] = Torque_Set, datapack[7] = ;
 
   radio.stopListening(); //송신모드
   radio.write(datapack, sizeof(datapack));
