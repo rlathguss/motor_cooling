@@ -1,10 +1,12 @@
 #include <SPI.h>
 #include "RF24.h"
 #include <ArduinoJson.h>
+
 RF24 radio(9, 10); //CE, SS
 uint8_t address[6] = "41715";
 const float Diameter = 525.0;  //mm단위
-float lin_vel,PowerStage_Temp, Motor_Temp,Air_Temp;
+float RPM, Lin_vel, PowerStage_Temp, Motor_Temp, Air_Temp, LPM, Torque_Out, 
+      Lv_Temp, Xaccle, Yaccle, Zaccle, Xangle, Yangle, Rad;
 float mt(uint16_t x);
 float pst(uint16_t x);
 float at(uint16_t x);
@@ -21,15 +23,14 @@ void setup() {
 
 
 void loop() {
-  
-////////////////////////////////////////Datapack RF Trans//////////////////////////////////////
   bool is_timeout = false;
   unsigned long t = millis();
   while(true){
-    if(radio.available()){break;
-      if(millis() - t > 3000){
-      is_timeout = true;
+    if(radio.available()){
       break;
+      if(millis() - t > 3000){
+        is_timeout = true;
+        break;
       }
     }
   } 
@@ -38,47 +39,45 @@ void loop() {
     Serial.println("통신시간 초과!");
   }
   else{
-    float datapack[8],datalog[14];
+    int16_t datapack[13];
     radio.read(datapack,sizeof(datapack));
-    datalog[0]=datapack[0];
-    datalog[1]=datapack[1];
-    datalog[2]=datapack[2];
-    datalog[3]=datapack[3];
-    datalog[4]=datapack[4];
-    datalog[5]=datapack[5];
-    datalog[6]=datapack[6];
-    datalog[7]=datapack[7];
-    Motor_Temp = mt(datalog[1]);
-    PowerStage_Temp = pst(datalog[2]);
-    Air_Temp = at(datalog[3]);
-    lin_vel = (Diameter) * datalog[0] * PI * 60/1000000/2.8  //KM/H  기어비 2.8
-
-    //Serial.print(datalog[0]);Serial.print("  ");Serial.print(datalog[1]);Serial.print("  ");
-    //Serial.print(datalog[2]);Serial.print("  ");Serial.print(datalog[3]);Serial.print("  ");
-    //Serial.print(datalog[4]);Serial.print("  ");Serial.print(datalog[5]);Serial.print("  ");
-    //Serial.print(datalog[6]);Serial.print("  ");Serial.print(datalog[7]);Serial.print("  ");
-    //Serial.print(datalog[8]);Serial.print("  ");Serial.print(datalog[9]);Serial.print("  ");
-    //Serial.print(datalog[10]);Serial.print("  ");Serial.print(datalog[11]);Serial.print("  ");
-    //Serial.print(datalog[12]);Serial.print("  ");Serial.println(datalog[13]);
+    RPM = datapack[0];
+    Lin_vel = (Diameter) * RPM * PI * 60/1000000/2.8;      //KM/H  기어비 2.8
+    Motor_Temp = mt(datapack[1]);
+    PowerStage_Temp = pst(datapack[2]);
+    Air_Temp = at(datapack[3]);
+    LPM = datapack[4]/100;
+    Torque_Out = datapack[5];
+    Lv_Temp = datapack[6]/100;
+    Xaccle = datapack[7]/100;
+    Yaccle = datapack[8]/100;
+    Zaccle = datapack[9]/100;
+    Xangle = datapack[10]/100;
+    Yangle = datapack[11]/100;
+    Rad = datapack[12];
+    Serial.println(sizeof(datapack));
 
     String output;
     StaticJsonDocument<128> doc;
-    doc["RPM"] = datalog[0];
+    doc["RPM"] = RPM;
     doc["Lin_vel"] = Lin_vel;
     doc["Motor_Temp"] = Motor_Temp;
     doc["PowerStage_Temp"] = PowerStage_Temp;
     doc["Air_Temp"] = Air_Temp;
-    doc["LPM"] = datalog[4];
-    doc["Torque_Out"] = datalog[5];
-    doc["Torque_Set"] = datalog[6];
+    doc["LPM"] = LPM;
+    doc["Torque_Out"] = Torque_Out;
+    doc["Lv_Temp"] = Lv_Temp;
+    doc["Xaccle"] = Xaccle;
+    doc["Yaccle"] = Yaccle;
+    doc["Zaccle"] = Zaccle;
+    doc["Xangle"] = Xangle;
+    doc["Yangle"] = Yangle;
+    doc["Rad"] = Rad;
     serializeJson(doc, output);
     Serial.println(output);
-  }
-  delay(10);
-}
 
-//Serial.println("Senor1, Senor2, Senor3, RPM, Lin_vel, Motor_temp, Heatsink_temp, Motor_torque, Torque_demand, Motor_vol, Motor_curr, Batt_vol, Batt_curr, Throttle_input_vol");
-//{"Sensor1":123,"Sensor2":123,"Sensor3":123,"RPM":123,"Lin_vel":123,"Motor_temp":123,"Heatsink_temp":123,"Motor_torque":123,"Torque_demand":123,"Motor_vol":123,"Motor_curr":123,"Batt_vol":123,"Batt_curr":123,"Throttle_input_vol":123,}
+  }
+}
 
 
 ////////////////////////////////////////////모터 온도 계산함수/////////////////////////////////////////
@@ -118,13 +117,13 @@ float pst(uint16_t x){
 //////////////////////////////////////////// 외기 온도 계산함수/////////////////////////////////////////
 float at(uint16_t x){
   float atemp;
-  float p1 = 0.002892;
-  float p2 = 0.002666 
+  float p1 = 0.002892 ;
+  float p2 = 0.002666 ; 
   float p3 = -0.006184 ;
-  float p4 = 0.01245;
-  float p5 = 0.2406;
-  float p6 = 1.611;
-  float p7 = 32.21;
+  float p4 = 0.01245 ;
+  float p5 = 0.2406 ;
+  float p6 = 1.611 ;
+  float p7 = 32.21 ;
   float p8 = 50.96 ;
 
   atemp = p1*pow(x,7) + p2*pow(x,6) + p3*pow(x,5) + p4*pow(x,4) + p5*pow(x,3) + p6*pow(x,2) + p7*x + p8;
