@@ -6,7 +6,7 @@ RF24 radio(9, 10); //CE, SS
 uint8_t address[6] = "41715";
 const float Diameter = 525.0;  //mm단위
 float RPM, Lin_vel, PowerStage_Temp, Motor_Temp, Air_Temp, LPM, Torque_Out, 
-      Lv_Temp, Xaccle, Yaccle, Zaccle, Xangle, Yangle, Rad;
+      Lv_Temp, Xaccle, Yaccle, Zaccle, Xangle, Yangle, Rad, CoolantTemp;
 float mt(uint16_t x);
 float pst(uint16_t x);
 float at(uint16_t x);
@@ -39,7 +39,7 @@ void loop() {
     Serial.println("통신시간 초과!");
   }
   else{
-    int16_t datapack[13];
+    int16_t datapack[14];
     radio.read(datapack,sizeof(datapack));
     RPM = datapack[0];
     Lin_vel = (Diameter) * RPM * PI * 60/1000000/2.8;      //KM/H  기어비 2.8
@@ -55,6 +55,7 @@ void loop() {
     Xangle = datapack[10]/100;
     Yangle = datapack[11]/100;
     Rad = datapack[12];
+    CoolantTemp = datapack[13]/100;
     Serial.println(sizeof(datapack));
 
     String output;
@@ -73,6 +74,7 @@ void loop() {
     doc["Xangle"] = Xangle;
     doc["Yangle"] = Yangle;
     doc["Rad"] = Rad;
+    doc["CoolantTemp"] = CoolantTemp;
     serializeJson(doc, output);
     Serial.println(output);
 

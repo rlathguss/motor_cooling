@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <TM1637Display.h>
+//#include <TM1637Display.h>
 #include <SPI.h>
 #include <mcp2515.h>
 #include <stdio.h>
@@ -8,29 +8,40 @@
 #include "Wire.h"
 #include <MPU6050_light.h>
 
+
+#define coolantsensorDivider 2970   //defines the resistor value that is in series in the voltage divider
+#define coolantsensorPin A0         //defines the analog pin of the input voltage from the voltage divider
+#define NUMSAMPLES 3               //defines the number of samples to be taken for a smooth average  
+const float steinconstA = 0.00132774106461327;        //steinhart equation constant A, determined from wikipedia equations
+const float steinconstB = 0.000254470874104285;       //steinhart equation constant B, determined from wikipedia equations
+const float steinconstC = 0.000000101216538378909;    //steinhart equation constant C, determined from wikipedia equations
+int16_t tempsensor();
+
+
 #define rx 0x201
 #define tx 0x181
+MCP2515 mcp2515(10);   //cs핀 번호 설정
+byte recv[8];
+byte id;
+void mcp2515_send(byte sid, byte data[], byte dlc);
+byte mcp2515_receive();
+
 
 MPU6050 mpu(Wire);
 long timer = 0;
 
+
 RF24 radio(9, 8); //CE, CS
 uint8_t address[6] = "41715";
-
-MCP2515 mcp2515(10);   //cs핀 번호 설정
-byte recv[8];
-byte id;
 
 
 int16_t SpeedRpmMax = 6000, CurrentDevice = 2000, Current200PC = 1070, I_Max_PK = 424;   //0x59, 0xC6, 0xD9, 0xC4
 int16_t SpeedActual, RPM, CurrentActual, Current, Rad,
         Motor_Temp, PowerStage_Temp, Air_Temp, 
         M_Out, M_Set, Torque_Out, Torque_Set,
-        Lv_Temp, Xaccle, Yaccle, Zaccle, Xangle, Yangle;
+        Lv_Temp, Xaccle, Yaccle, Zaccle, Xangle, Yangle, CoolantTemp;
 float LPM1, Lv_Temp1, Xaccle1, Yaccle1, Zaccle1, Xangle1, Yangle1;
 
-void mcp2515_send(byte sid, byte data[], byte dlc);
-byte mcp2515_receive();
 
 bool bSpeedActual = false;
 bool bCurrentActual = false;
@@ -43,7 +54,7 @@ bool bM_Set = false;
 
 volatile int flow_frequency; // Measures flow sensor pulses
 int16_t LPM; 
-unsigned char flowsensor = 2; // Sensor Input
+unsigned char flowsensor = 3; // Sensor Input
 unsigned long currentTime1;
 unsigned long cloopTime1;
 
@@ -87,20 +98,20 @@ void setup() {
 
   pinMode(flowsensor, INPUT);
   digitalWrite(flowsensor, HIGH);
-  attachInterrupt(digitalPinToInterrupt(2), flow, RISING); // Setup Interrupt
+  attachInterrupt(digitalPinToInterrupt(3), flow, RISING); // Setup Interrupt
   //sei();  Enable interrupts
   currentTime1 = millis();
   cloopTime1 = currentTime1;
   Serial.println("Flow sensor ready");
 
-
-  pinMode(adir1, OUTPUT);    //l298n 모터 a 방향 결정 
-  pinMode(adir2, OUTPUT);    //l298n 모터 a 방향 결정 
+  pinMode(aena, OUTPUT);     //l298n 모터 a 활성화
+  pinMode(adir1, OUTPUT);    //l298n 모터 a 활성화 
+  pinMode(adir2, OUTPUT);    //l298n 모터 a 활성화 
   currentTime2 = millis();
   cloopTime2 = currentTime2;
+  analogWrite(aena, 0);                             // 팬 정지 설정
   digitalWrite(adir1, 1);                           // 디지털 6번 전진
   digitalWrite(adir2, 0);                           // 디지털 7번 전진
-  analogWrite(aena, 0);  
   Serial.println("L298N to radiator connect / fan speed = 0 ");
   Rad = 0;
 
@@ -138,12 +149,15 @@ void loop() {
     Serial.println(" L/Min");
   }
 
+  CoolantTemp = tempsensor();
 
   for (;;) {
     Serial.println("루프 진입");
     mpu.update();
     id = mcp2515_receive();
     if (id == 1) { 
+      mpu.update();
+      accsen();
       Serial.println("컨트롤러 오프라인! / 팬속도 255 ");
       break;
     }
@@ -230,40 +244,55 @@ void loop() {
     cloopTime2 = currentTime2;
     if(id == 1){
       analogWrite(aena, 255);                       //디지털 5번 핀이 a 모터 속도 조절 핀  0~255
+      digitalWrite(adir1, 1);
+      digitalWrite(adir2, 0);
       Serial.println("can 통신 실패 팬속도 최대"); 
-      Rad = 1; 
+      Rad = 4; 
     }
     else if (Motor_Temp >= 11646 || PowerStage_Temp >= 20250) {  //40도
       analogWrite(aena, 255);
+      digitalWrite(adir1, 1);
+      digitalWrite(adir2, 0);
       Serial.println("온도 40 이상 팬속도 최대");
-      Rad = 40; 
+      Rad = 255; 
     }
     else if (Motor_Temp >= 11364 || PowerStage_Temp >= 19733) {  //35도
       analogWrite(aena, 200);
+      digitalWrite(adir1, 1);
+      digitalWrite(adir2, 0);
       Serial.println("온도 35 이상 팬속도 200");
-      Rad = 35; 
+      Rad = 200; 
     }
     else if (Motor_Temp >= 11080 || PowerStage_Temp >= 19247) {  //30도
       analogWrite(aena, 150);
+      digitalWrite(adir1, 1);
+      digitalWrite(adir2, 0);
       Serial.println("온도 30 이상 팬속도 150");
-      Rad = 30; 
+      Rad = 150; 
     }
     else if (Motor_Temp >= 10795 || PowerStage_Temp >= 18797) {  //25도
-      analogWrite(aena, 100);                
+      analogWrite(aena, 100);
+      digitalWrite(adir1, 1);
+      digitalWrite(adir2, 0);                
       Serial.println("온도 25 이상 팬속도 100");        
-      Rad = 25; 
+      Rad = 100; 
     }
     else if (Motor_Temp >= 10510 || PowerStage_Temp >= 18387) {  //20도
       analogWrite(aena, 50); 
+      digitalWrite(adir1, 1);
+      digitalWrite(adir2, 0);
       Serial.println("온도 20 이상 팬속도 50");                       
-      Rad = 20; 
+      Rad = 50; 
     }
     else{
-      analogWrite(aena, 0);  
+      digitalWrite(aena, 0); 
+      digitalWrite(adir1, 1);
+      digitalWrite(adir2, 0); 
       Serial.println("팬 off");
-      Rad = 0; 
+      Rad = 2; 
     }
   }
+  mpu.update();
 
 
   digitalWrite(8, LOW);       //RF24 활성화
@@ -279,19 +308,19 @@ void loop() {
   //bM_Set = false;
   
   //Datapack RF Trans
-  int16_t datapack[13];
+  int16_t datapack[14];
   datapack[0] = RPM; datapack[1] = Motor_Temp; datapack[2] = PowerStage_Temp; datapack[3] = Air_Temp;
   datapack[4] = LPM; datapack[5] = Torque_Out; datapack[6] = Lv_Temp, 
   datapack[7] = Xaccle, datapack[8] = Yaccle, datapack[9] = Zaccle,
-  datapack[10] = Xangle, datapack[11] = Yangle , datapack[12] = Rad; 
+  datapack[10] = Xangle, datapack[11] = Yangle , datapack[12] = Rad, datapack[13] = CoolantTemp;
 
   radio.stopListening(); //송신모드
   radio.write(datapack, sizeof(datapack));
-  Serial.println(output);
+  Serial.println(sizeof(datapack));
 
   digitalWrite(8, HIGH);     //RF24 비활성화
   digitalWrite(10, LOW);     //CAN 통신 활성화
-
+  mpu.update();
 
   //  for(int i =0;i<7;i++){
   //    Serial.print(datapack[i],HEX);
@@ -330,7 +359,7 @@ byte mcp2515_receive() {
   unsigned long t = millis();
   byte ret;
   while (1) {
-    if (millis() - t > 1000) {
+    if (millis() - t > 500) {
       ret = (byte)1;
       Serial.println(ret);
       break;
@@ -389,4 +418,31 @@ int convertToInt(byte recv[], int n){
 ////////////////////////////////////////////Interrupt function/////////////////////////////////////////
 void flow(){
   flow_frequency++;
+}
+
+
+////////////////////////////////////////////CoolantTemp function/////////////////////////////////////////
+int16_t tempsensor(){  
+  float average = 0;
+  for (uint8_t i=0; i<NUMSAMPLES; i++) {                      
+    average += analogRead(coolantsensorPin);        
+    delay(10);
+  }
+  average /= NUMSAMPLES;  
+  average = (coolantsensorDivider*average)/(1023-average);  
+
+  float steinhart1;                              //steinhart equation to estimate temperature value at any resistance from curve of thermistor sensor
+  steinhart1 = log(average);                     //lnR
+  steinhart1 = pow(steinhart1,3);                 //(lnR)^3
+  steinhart1 *= steinconstC;                     //C*((lnR)^3)
+  steinhart1 += (steinconstB*(log(average)));    //B*(lnR) + C*((lnR)^3)
+  steinhart1 += steinconstA;                     //Complete equation, 1/T=A+BlnR+C(lnR)^3
+  steinhart1 = 1.0/steinhart;                    //Inverse to isolate for T
+  steinhart1 -= 273.15; 
+  Serial.print("Coolant Temperature = ");
+  Serial.print(steinhart1);                      
+  Serial.println(" *C");
+  steinhart1 = steinhart1 * 100;
+  
+  return steinhart1;
 }
